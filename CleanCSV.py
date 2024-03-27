@@ -21,17 +21,23 @@ with open(csv1path, errors='ignore') as csv1 :
         currline = ''
         csv2len = 0
         csv1len = 0
+
+        pos = 0
+        neg = 0
         try :
             
             for line in csv1reader :
                 newline = []
                 rating = line[4]
                 if int(rating) >= 7 :
+                    pos += 1
                     rating = 1
                 else :
+                    neg += 1
                     rating = 0
+
                 currline = html.unescape(line[3])
-                currline = currline.replace("\"", '').replace(".", ' ')
+                currline = currline.replace('/', ' ').replace('.', ' ').replace('-', ' ')
 
                 currline = currline.translate(str.maketrans('', '', string.punctuation)).lower()
 
@@ -46,8 +52,10 @@ with open(csv1path, errors='ignore') as csv1 :
                 newline = []
                 rating = line[4]
                 if int(rating) >= 7:
+                    pos += 1
                     rating = 1
                 else :
+                    neg += 1
                     rating = 0
                 currline = html.unescape(line[3])
                 currline = currline.replace('/', ' ').replace('.', ' ').replace('-', ' ')
@@ -64,7 +72,7 @@ with open(csv1path, errors='ignore') as csv1 :
             print(e)
             print(currline)
 
-        print(f"Length of csv1 {csv1len}, csv2 {csv2len}, newcsv {len(newcsv)}")
+        print(f"Length of csv1 {csv1len}, csv2 {csv2len}, newcsv {len(newcsv)}, positive {pos}, negative {neg}")
 
         newcsv = pandas.DataFrame(newcsv)
         newcsv.to_csv(newcsvpath, index=False, header=False)

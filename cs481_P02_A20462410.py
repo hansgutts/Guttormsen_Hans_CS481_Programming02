@@ -1,8 +1,13 @@
 import sys
 import csv
 import math
+import json
+
+import AnalyzeInputs
 
 path = "UCIdrugClean.csv"
+posweightfilepath = "PosWeightsUCIDrug.json"
+negweightfilepath = "NegWeightsUCIDrug.json"
 
 pword = {}
 smoothing = 1 #get smoothing amount (1 in our case)
@@ -11,17 +16,20 @@ smoothing = 1 #get smoothing amount (1 in our case)
 #remove stop words, 
 
 #take in the data, split it, and get the bag of words vector and output probability vectors for positive/negative
-def train() :
+def main() :
+
+    print("Guttormsen, Hans, A20462410 solution:")
 
     #determine if input value is valid
     #if its not, default to 80% train size
-    if len(sys.argv) != 2 or int(sys.argv[1]) < 20 or int(sys.argv[1] > 80) :
-        print("Incorrect arguments, assuming training size = 80")
+    if len(sys.argv) != 2 or int(sys.argv[1]) < 20 or int(sys.argv[1]) > 80 :
+        print("Training set size: 80 %")
         trainsize = .8
     else : #otherwise do it based on input value
+        print(f"Training set size: {sys.argv[1]} %")
         trainsize = int(sys.argv[1])/100
 
-    print(f"Training Size set to {trainsize}")
+    print("Training classifier...")
 
     #open the csv file (errors='ignore' because there was a strange ascii error)
     with open(path, errors='ignore') as data :
@@ -48,8 +56,6 @@ def train() :
         positivecount = 0
         negativecount = 0
 
-        i = 0
-
         #where to actually train and get the "weights"
         vocab = set()
 
@@ -57,7 +63,7 @@ def train() :
         vocabcountpositive = dict()
         vocabcountnegative = dict()
 
-        #go through the training vector
+        #go through the training vectors
         for vector in train :  
             
             #determine if the rating was positive (1) or negative (0)
@@ -99,9 +105,6 @@ def train() :
 
                 vocab.add(word) #get vocabulary (set will eliminate repeats)
 
-        #print count of positive and negative documents (to see inconsistent amount)
-        print(f"Positive {positivecount}, Negative {negativecount}")
-
         #probability that label = pos/neg    
         probpositive = positivecount/(positivecount+negativecount)
         probnegative = negativecount/(positivecount+negativecount)
@@ -110,7 +113,7 @@ def train() :
         positiveTokens = sum(vocabcountpositive.values())
         negativeTokens = sum(vocabcountnegative.values())
         
-        #get size of vocab (for smoothing)
+        #get size of vocab for negative and positive documents (for smoothing)
         #the number of types in the training set for positive and negative
         positiveTypes = len(vocabcountpositive.values())
         negativeTypes = len(vocabcountnegative.values())
@@ -143,6 +146,8 @@ def train() :
             else :
                 vocabProbNegative[word] = smoothing / denomnegative
 
+        print("Testing classifier...")
+
         #counts of correct predictions and incorrect predictions
         tp = 0 #true positive
         fp = 0 #false positive
@@ -161,55 +166,94 @@ def train() :
             #for each word in the document
             for word in list(set(vector[1].split())) : #converting to set then list removes duplicates and makes our "vector" binary
                 
+                #if the word actually has a value
                 if word in vocabProbPositive :
-                    if math.log(vocabProbPositive[word]) == 0 :
-                        print(word)
+
+                    #multiply the probability (addition because of log space)
                     probdocpositive += math.log(vocabProbPositive[word])
 
+                #if the word actually has a value
                 if word in vocabProbNegative :
-                    if math.log(vocabProbPositive[word]) == 0 :
-                        print(word)
+
+                    #multiply the probability (addition because of log space)
                     probdocnegative += math.log(vocabProbNegative[word])
 
+            #the final probability that a document is a certain label
+            #convert back to normal space (out of log space)
             probdocpositive = math.exp(probdocpositive)
             probdocnegative = math.exp(probdocnegative)
 
-            count0 = 0 
-
-            if probdocnegative == 0 or probdocpositive == 0 :
-                count0 += 1
-
-            
-
+            #the predetermined sentiment
             sentiment = int(vector[0])
             
+            #if the document is more likely positive (ie we classified it as positive)
             if probdocpositive > probdocnegative :
                 
+                #if our sentiment == 1 (positive)
                 if sentiment :
-                    #print(f"predicted {probdocpositive > probdocnegative} actual {bool(sentiment)}, neg {probdocnegative} pos {probdocpositive} tp")
+                    #predicted matches actual (true positive)
                     tp += 1
                 else :
-                    #print(f"predicted {probdocpositive > probdocnegative} actual {bool(sentiment)}, neg {probdocnegative} pos {probdocpositive} fp")
+                    #predicted does not match actual (false positive)
                     fp += 1
             else :
                 if sentiment :
-                    #print(f"predicted {probdocpositive > probdocnegative} actual {bool(sentiment)}, neg {probdocnegative} pos {probdocpositive} fn")
+                    #predicted does not match actual (false negative)
                     fn += 1
                 else :
-                    #print(f"predicted {probdocpositive > probdocnegative} actual {bool(sentiment)}, neg {probdocnegative} pos {probdocpositive} tp")
+                    #predicted matches actual (true negative)
                     tn += 1
             
+        print("Test results / metrics:")
+        print()
+    
+        #calculate our test metrics and round to 4 decimal places
         sensitivity = round(tp / (tp + fn), 4)
         specificity = round(tn / (fp + tn), 4)
         precision = round(tp / (tp + fp), 4)
         accuracy = round((tp + tn) / (tp + fp + tn + fn), 4)
+        npv = round(tn/(tn + fn), 4)
+        f = round(tp / (tp + (.5 * (fp + fn))), 4)
 
-        print(f"TP {tp}, TN {tn}, FP {fp}, FN {fn}")
-        print(f"sens {sensitivity}, spec {specificity}, prec {precision}, accuracy {accuracy}")
-                
+        #display metrics
+        print(f"Number of true positives: {tp} \nNumber of true negatives: {tn} \nNumber of false positives: {fp} \nNumber of false negatives: {fn}")
+        print(f"Sensitivity (recall): {sensitivity} \nSpecificity: {specificity} \nPrecision: {precision} \nNegative Predictive Value: {npv} \nAccuracy {accuracy} \nF-Score: {f}")
 
-            
-            
+        print()
 
-#call train and predict here, possibly?
-train()
+        #add our general probability of P(doc = label) to our weights (for our analyze inputs file)
+        vocabProbPositive["ProbPositive"] = probpositive
+        vocabProbNegative["ProbNegative"] = probnegative
+
+        #save our positive and negative weights for analyzeinputs.py to open and use
+        with open(posweightfilepath, "w") as weightfile: 
+            json.dump(vocabProbPositive, weightfile)
+        
+        with open(negweightfilepath, "w") as weightfile: 
+            json.dump(vocabProbNegative, weightfile)
+
+        #make it so we enter the while loop
+        response = "Y"
+
+        #ask for user sentences until they say no
+        while response.upper() == "Y" :
+
+            #prompt for sentence
+            sentence = input("Enter your sentence: ")
+
+            #analyze the inputs
+            output = AnalyzeInputs.analyze(sentence)
+
+            #output of analyzeinputs = [label, probpos, probneg]
+            if output[0] == 1 :
+                label = "positive"
+            else :
+                label = "negative"
+
+            #tell the user the classification and probability
+            print(f"\nSentence S: \"{sentence}\" was classified as {label}.\nP(positive | S) = {output[1]} \nP(negative | S) = {output[2]}\n")
+
+            #prompt to continue
+            response = input("Do you want to enter another sentence [Y/N]?")
+
+main() #only have the one function so called it main
