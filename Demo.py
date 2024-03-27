@@ -1,0 +1,3 @@
+import AnalyzeInputs
+
+AnalyzeInputs.prompt()
