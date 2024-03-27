@@ -54,6 +54,27 @@ def analyze(input) :
 
     return [label, probDocPositive, probDocNegative]
 
+def prompt() :
+    #make it so we enter the while loop
+    response = "Y"
 
+    #ask for user sentences until they say no
+    while response.upper() == "Y" :
 
-    
+        #prompt for sentence
+        sentence = input("Enter your sentence: ")
+
+        #analyze the inputs
+        output = analyze(sentence)
+
+        #output of analyzeinputs = [label, probpos, probneg]
+        if output[0] == 1 :
+            label = "positive"
+        else :
+            label = "negative"
+
+        #tell the user the classification and probability
+        print(f"\nSentence S: \"{sentence}\" was classified as {label}.\nP(positive | S) = {output[1]} \nP(negative | S) = {output[2]}\n")
+
+        #prompt to continue
+        response = input("Do you want to enter another sentence [Y/N]?")
